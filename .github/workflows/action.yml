@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
 
 env:
-  BASE_PATH: "beautifier"
+  BASE_PATH: ${{ vars.BASE_PATH }}
 
 # Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
 permissions:
