@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import "./globals.css";
+import "./favicon.ico";
 import { Geist } from "next/font/google";
 import { cn } from "@/lib/utils";
 import { Sparkles } from "lucide-react";
