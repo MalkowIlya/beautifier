@@ -42,7 +42,7 @@ export function FormatSwitcher({
     <div
       role="tablist"
       aria-label="Формат данных"
-      className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 p-1"
+      className="inline-flex w-full flex-wrap items-center gap-1 rounded-lg border border-white/10 bg-white/5 p-1 sm:w-auto"
     >
       {formatOptions.map(({ id, label, icon: Icon }) => {
         const isActive = id === activeFormat;
@@ -54,10 +54,10 @@ export function FormatSwitcher({
             aria-selected={isActive}
             onClick={() => selectFormat(id)}
             className={cn(
-              "inline-flex h-9 items-center gap-2 rounded-md px-4 text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-white/40",
+              "inline-flex h-9 flex-1 items-center justify-center gap-1 rounded-md px-2 text-xs font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-white/40 sm:flex-none sm:gap-2 sm:px-4 sm:text-sm",
               isActive
                 ? "bg-zinc-700 text-zinc-50 shadow-sm"
-                : "text-zinc-400 hover:bg-white/5 hover:text-zinc-100"
+                : "text-zinc-400 hover:bg-white/5 hover:text-zinc-100",
             )}
           >
             <Icon className="size-4" />

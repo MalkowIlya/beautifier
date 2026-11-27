@@ -2,13 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import "./globals.css";
 import "./favicon.ico";
-import { Geist } from "next/font/google";
-import { cn } from "@/lib/utils";
 import { Sparkles } from "lucide-react";
 import { BridgeProvider } from "@/components/bridge-provider";
 import { Toaster } from "@/components/ui/sonner";
-
-const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
 
 const appName = "Beautify";
 
@@ -23,20 +19,24 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ru" className={cn("dark font-sans", geist.variable)}>
+    <html lang="ru" className="dark font-sans">
       <body className="antialiased min-h-screen bg-background flex flex-col">
         <BridgeProvider />
         <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur-md">
-          <div className="container mx-auto px-4 h-14 flex items-center">
+          <div className="mx-auto flex min-h-14 w-full max-w-[1632px] flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
             <Link
               href="/"
-              className="flex items-center gap-2 text-lg font-semibold tracking-tight"
+              className="flex shrink-0 items-center gap-2 text-lg font-semibold tracking-tight"
             >
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
                 <Sparkles className="h-4 w-4" />
               </div>
               {appName}
             </Link>
+            <div
+              id="workspace-header-controls"
+              className="flex min-w-0 flex-1 flex-wrap items-center justify-start gap-2 sm:justify-end"
+            />
           </div>
         </header>
         <main className="flex-1">{children}</main>
