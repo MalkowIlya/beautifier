@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { CodeHighlight } from "@/components/syntax-highlight";
 
 export type JsonViewMode = "formatted" | "minified";
 
@@ -21,6 +22,7 @@ export type ResultPanelProps = {
   onViewModeChange?: (mode: JsonViewMode) => void;
   minifyAvailable?: boolean;
   fileExtension?: string;
+  language?: "json" | "yaml" | "sql" | "php";
 };
 
 const downloadMimeTypes: Record<string, string> = {
@@ -37,6 +39,7 @@ export function ResultPanel({
   onViewModeChange,
   minifyAvailable = false,
   fileExtension = ".txt",
+  language = "json",
 }: ResultPanelProps) {
   const [copied, setCopied] = useState(false);
   const [downloaded, setDownloaded] = useState(false);
@@ -74,7 +77,7 @@ export function ResultPanel({
   return (
     <section
       aria-label="Область результата"
-      className="flex flex-col overflow-hidden rounded-2xl border border-zinc-700/70 bg-zinc-900 shadow-xl shadow-zinc-900/20 animate-in fade-in slide-in-from-bottom-4 duration-500"
+      className="flex min-h-[24rem] flex-col overflow-hidden rounded-2xl border border-zinc-700/70 bg-zinc-900 shadow-xl shadow-zinc-900/20 animate-in fade-in slide-in-from-bottom-4 duration-500 xl:min-h-[30rem]"
     >
       <header className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 bg-zinc-800/60 px-4 py-2.5">
         <span className="flex items-center gap-2 text-xs font-medium tracking-wide text-zinc-400">
@@ -172,9 +175,11 @@ export function ResultPanel({
           <p className="text-sm text-zinc-500">{emptyMessage}</p>
         </div>
       ) : (
-        <pre className="flex-1 overflow-auto p-4 font-mono text-sm leading-relaxed text-emerald-200/90">
-          <code>{result}</code>
-        </pre>
+        <div className="flex-1 overflow-auto p-4">
+          <CodeHighlight language={language}>
+            {result ?? ""}
+          </CodeHighlight>
+        </div>
       )}
     </section>
   );

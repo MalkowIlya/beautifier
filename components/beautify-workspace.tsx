@@ -1,10 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { ArrowRightLeft, Wand2 } from "lucide-react";
+import { createPortal } from "react-dom";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ArrowRightLeft, FilePlus2 } from "lucide-react";
 import { FormatSwitcher, type FormatId } from "@/components/format-switcher";
+import { DocumentHistoryPanel } from "@/components/document-history-panel";
 import { InputPanel } from "@/components/input-panel";
 import { ResultPanel } from "@/components/result-panel";
+import { useDocumentHistory } from "@/components/use-document-history";
 import {
   INPUT_HINTS,
   PHP_PLACEHOLDER_HINT,
@@ -19,10 +22,11 @@ import { formatYaml } from "@/lib/formatters/yaml";
 import { formatSql } from "@/lib/formatters/sql";
 import { jsonToPhp, phpToJson } from "@/lib/formatters/php";
 import { cn } from "@/lib/utils";
+import { syntaxLanguage } from "@/components/syntax-highlight";
 import type { JsonViewMode } from "@/components/result-panel";
+import type { PhpDirection, WorkspaceSnapshot } from "@/lib/document-history";
 
 type BaseFormat = Exclude<FormatId, "php">;
-type PhpDirection = "toPhp" | "toJson";
 
 const formatLabels: Record<BaseFormat, string> = {
   json: "JSON",
@@ -37,6 +41,15 @@ const fileExtensions: Record<FormatId, string> = {
   php: ".php",
 };
 
+function createInitialSnapshot(): WorkspaceSnapshot {
+  return {
+    format: "json",
+    phpDirection: "toPhp",
+    input: PLACEHOLDER_INPUT,
+    viewMode: "formatted",
+  };
+}
+
 export function BeautifyWorkspace() {
   const [format, setFormat] = useState<FormatId>("json");
   const [inputs, setInputs] = useState<Record<BaseFormat, string>>({
@@ -48,17 +61,62 @@ export function BeautifyWorkspace() {
   const [phpArrayInput, setPhpArrayInput] = useState(PHP_PLACEHOLDER_INPUT);
   const [phpDirection, setPhpDirection] = useState<PhpDirection>("toPhp");
   const [viewMode, setViewMode] = useState<JsonViewMode>("formatted");
+  const [headerControlsSlot, setHeaderControlsSlot] =
+    useState<HTMLElement | null>(null);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      setHeaderControlsSlot(
+        document.getElementById("workspace-header-controls"),
+      );
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
 
   const isJson = format === "json";
   const isYaml = format === "yaml";
   const isSql = format === "sql";
   const isPhp = format === "php";
-
   const currentInput = isPhp
     ? phpDirection === "toPhp"
       ? phpJsonInput
       : phpArrayInput
     : inputs[format];
+
+  const initialSnapshot = useMemo(() => createInitialSnapshot(), []);
+  const snapshot = useMemo<WorkspaceSnapshot>(
+    () => ({
+      format,
+      phpDirection,
+      input: currentInput,
+      viewMode,
+    }),
+    [currentInput, format, phpDirection, viewMode],
+  );
+
+  const restoreSnapshot = useCallback((restored: WorkspaceSnapshot) => {
+    setFormat(restored.format);
+    setPhpDirection(restored.phpDirection);
+    if (restored.format === "php") {
+      if (restored.phpDirection === "toPhp") {
+        setPhpJsonInput(restored.input);
+      } else {
+        setPhpArrayInput(restored.input);
+      }
+    } else {
+      setInputs((previous) => ({
+        ...previous,
+        [restored.format]: restored.input,
+      }));
+    }
+    setViewMode(restored.viewMode);
+  }, []);
+
+  const history = useDocumentHistory({
+    snapshot,
+    initialSnapshot,
+    onRestore: restoreSnapshot,
+  });
 
   const formatted = useMemo(() => {
     if (isJson) {
@@ -99,6 +157,7 @@ export function BeautifyWorkspace() {
         : null;
 
   function handleInputChange(value: string) {
+    history.markDirty();
     if (isPhp) {
       if (phpDirection === "toPhp") {
         setPhpJsonInput(value);
@@ -111,7 +170,36 @@ export function BeautifyWorkspace() {
   }
 
   function handleDirectionChange(direction: PhpDirection) {
-    setPhpDirection(direction);
+    if (direction === phpDirection) return;
+    void history.switchContext("php", direction).then(() => {
+      setPhpDirection(direction);
+    });
+  }
+
+  function handleFormatChange(nextFormat: FormatId) {
+    if (nextFormat === format) return;
+    void history.switchContext(nextFormat, phpDirection).then(() => {
+      setFormat(nextFormat);
+    });
+  }
+
+  function handleViewModeChange(mode: JsonViewMode) {
+    history.markDirty();
+    setViewMode(mode);
+  }
+
+  async function handleNewDocument() {
+    await history.startNewDocument();
+    setFormat(initialSnapshot.format);
+    setInputs({
+      json: PLACEHOLDER_INPUT,
+      yaml: YAML_PLACEHOLDER_INPUT,
+      sql: SQL_PLACEHOLDER_INPUT,
+    });
+    setPhpJsonInput(PLACEHOLDER_INPUT);
+    setPhpArrayInput(PHP_PLACEHOLDER_INPUT);
+    setPhpDirection(initialSnapshot.phpDirection);
+    setViewMode(initialSnapshot.viewMode);
   }
 
   const inputPlaceholder = isPhp
@@ -139,76 +227,93 @@ export function BeautifyWorkspace() {
           : "Результат ещё не сформирован";
 
   return (
-    <section className="relative mx-auto w-full max-w-6xl">
-      <div className="flex flex-col gap-5 rounded-2xl border border-zinc-700/70 bg-zinc-900 p-5 shadow-2xl shadow-zinc-950/40 animate-in fade-in slide-in-from-bottom-4 duration-500 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-zinc-800/80">
-            <Wand2 className="size-5 text-zinc-300" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold tracking-tight">Beautify</h1>
-            <p className="mt-0.5 font-mono text-xs text-zinc-500">
-              {"// вставь данные — получи порядок"}
-            </p>
-          </div>
-        </div>
-        <FormatSwitcher value={format} onValueChange={setFormat} />
-      </div>
-
-      {isPhp && (
-        <div
-          role="group"
-          aria-label="Направление конвертации PHP"
-          className="mt-4 inline-flex items-center gap-1 rounded-lg border border-zinc-700/70 bg-zinc-800/60 p-1 animate-in fade-in slide-in-from-bottom-4 duration-500"
-        >
-          <button
-            type="button"
-            aria-pressed={phpDirection === "toPhp"}
-            onClick={() => handleDirectionChange("toPhp")}
-            className={cn(
-              "inline-flex h-9 items-center gap-2 rounded-md px-4 text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-white/40",
-              phpDirection === "toPhp"
-                ? "bg-zinc-700 text-zinc-50 shadow-sm"
-                : "text-zinc-400 hover:bg-white/5 hover:text-zinc-100"
+    <>
+      {headerControlsSlot &&
+        createPortal(
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <FormatSwitcher value={format} onValueChange={handleFormatChange} />
+            {isPhp && (
+              <div
+                role="group"
+                aria-label="Направление конвертации PHP"
+                className="flex flex-wrap items-center gap-1 rounded-lg border border-white/10 bg-white/5 p-1"
+              >
+                <button
+                  type="button"
+                  aria-pressed={phpDirection === "toPhp"}
+                  onClick={() => handleDirectionChange("toPhp")}
+                  className={cn(
+                    "inline-flex h-9 items-center gap-2 rounded-md px-3 text-xs font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-white/40 sm:text-sm",
+                    phpDirection === "toPhp"
+                      ? "bg-zinc-700 text-zinc-50 shadow-sm"
+                      : "text-zinc-400 hover:bg-white/5 hover:text-zinc-100",
+                  )}
+                >
+                  <ArrowRightLeft className="size-4" />
+                  JSON → PHP
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={phpDirection === "toJson"}
+                  onClick={() => handleDirectionChange("toJson")}
+                  className={cn(
+                    "inline-flex h-9 items-center gap-2 rounded-md px-3 text-xs font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-white/40 sm:text-sm",
+                    phpDirection === "toJson"
+                      ? "bg-zinc-700 text-zinc-50 shadow-sm"
+                      : "text-zinc-400 hover:bg-white/5 hover:text-zinc-100",
+                  )}
+                >
+                  <ArrowRightLeft className="size-4" />
+                  PHP → JSON
+                </button>
+              </div>
             )}
-          >
-            <ArrowRightLeft className="size-4" />
-            JSON → PHP-массив
-          </button>
-          <button
-            type="button"
-            aria-pressed={phpDirection === "toJson"}
-            onClick={() => handleDirectionChange("toJson")}
-            className={cn(
-              "inline-flex h-9 items-center gap-2 rounded-md px-4 text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-white/40",
-              phpDirection === "toJson"
-                ? "bg-zinc-700 text-zinc-50 shadow-sm"
-                : "text-zinc-400 hover:bg-white/5 hover:text-zinc-100"
-            )}
-          >
-            <ArrowRightLeft className="size-4" />
-            PHP-массив → JSON
-          </button>
+            <button
+              type="button"
+              onClick={handleNewDocument}
+              aria-label="Создать новый документ"
+              title="Новый документ"
+              className="inline-flex h-10 items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 text-sm font-medium text-zinc-300 transition-colors hover:bg-white/10 hover:text-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+            >
+              <FilePlus2 className="size-4" />
+              <span>Новый</span>
+            </button>
+          </div>,
+          headerControlsSlot,
+        )}
+      <section className="relative mx-auto w-full max-w-[1600px]">
+        <div className="mt-6 grid gap-6 xl:grid-cols-2">
+          <InputPanel
+            formatLabel={inputFormatLabel}
+            value={currentInput}
+            onValueChange={handleInputChange}
+            error={error}
+            placeholder={inputPlaceholder}
+            highlight={true}
+            extension={fileExtensions[format]}
+          />
+          <ResultPanel
+            result={result}
+            emptyMessage={emptyMessage}
+            viewMode={viewMode}
+            onViewModeChange={handleViewModeChange}
+            minifyAvailable={isJson && result !== null}
+            fileExtension={fileExtensions[format]}
+            language={syntaxLanguage(fileExtensions[format])}
+          />
         </div>
-      )}
-
-      <div className="mt-6 grid gap-6 lg:grid-cols-2">
-        <InputPanel
-          formatLabel={inputFormatLabel}
-          value={currentInput}
-          onValueChange={handleInputChange}
-          error={error}
-          placeholder={inputPlaceholder}
+        <DocumentHistoryPanel
+          documents={history.documents}
+          activeDocumentId={history.activeDocumentId}
+          hasUnsavedChanges={history.hasUnsavedChanges}
+          canSaveVersion={history.canSaveVersion}
+          onOpenDocument={(id) => void history.openDocument(id)}
+          onSaveVersion={() => void history.saveVersion()}
+          onRestoreVersion={(documentId, versionId) =>
+            void history.restoreVersion(documentId, versionId)
+          }
         />
-        <ResultPanel
-          result={result}
-          emptyMessage={emptyMessage}
-          viewMode={viewMode}
-          onViewModeChange={setViewMode}
-          minifyAvailable={isJson && result !== null}
-          fileExtension={fileExtensions[format]}
-        />
-      </div>
-    </section>
+      </section>
+    </>
   );
 }

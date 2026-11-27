@@ -2,6 +2,7 @@
 
 import { AlertTriangle, TextCursorInput } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { InputPanelHighlight } from "@/components/input-panel-highlight";
 
 export type InputPanelProps = {
   formatLabel?: string;
@@ -10,6 +11,8 @@ export type InputPanelProps = {
   error: string | null;
   readOnly?: boolean;
   placeholder?: string;
+  highlight?: boolean;
+  extension?: string;
 };
 
 export function InputPanel({
@@ -19,12 +22,27 @@ export function InputPanel({
   error,
   readOnly = false,
   placeholder = '{"пример": "вставьте сюда JSON"}',
+  highlight = false,
+  extension,
 }: InputPanelProps) {
+  if (highlight) {
+    return (
+      <InputPanelHighlight
+        formatLabel={formatLabel}
+        value={value}
+        onChange={onValueChange}
+        error={error}
+        placeholder={placeholder}
+        extension={extension}
+      />
+    );
+  }
+
   return (
     <section
       aria-label="Область ввода"
       className={cn(
-        "flex flex-col overflow-hidden rounded-2xl border bg-zinc-900 shadow-xl shadow-zinc-900/20 animate-in fade-in slide-in-from-bottom-4 duration-500",
+        "flex min-h-[24rem] flex-col overflow-hidden rounded-2xl border bg-zinc-900 shadow-xl shadow-zinc-900/20 animate-in fade-in slide-in-from-bottom-4 duration-500 xl:min-h-[30rem]",
         error ? "border-red-500/50" : "border-zinc-700/70"
       )}
     >
